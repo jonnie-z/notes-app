@@ -2,103 +2,115 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"math"
 	"net/http"
-	"strconv"
+	"os"
+	"sync"
 )
 
 const PORT = ":8080"
 
-var notes = []Note{}
-var nextID = 0
+// const DATA_FILE = "./db.json"
+// const TEMP_DATA_FILE = DATA_FILE + ".tmp"
 
-// type Response struct {
-// 	Notes []Note `json:"notes"`
-// }
+type App struct {
+	notes         []Note
+	nextID        int
+	notesFile     string
+	tempNotesFile string
+
+	mu sync.Mutex
+}
+
+func newApp() App {
+	notesFile := "./db.json"
+	return App{
+		notes:         []Note{},
+		nextID:        0,
+		notesFile:     notesFile,
+		tempNotesFile: notesFile + ".tmp",
+	}
+}
 
 type Note struct {
 	ID   int    `json:"id"`
 	Body string `json:"body"`
 }
 
-func setNextID() {
+func (a *App) setNextID() {
 	highest := math.MinInt64
 
-	for _, note := range notes {
+	for _, note := range a.notes {
 		if note.ID > highest {
 			highest = note.ID
 		}
 	}
 
-	if highest < 0 { highest = -1 }
+	if highest < 0 {
+		highest = -1
+	}
 
-	nextID = highest + 1
+	a.nextID = highest + 1
 }
 
-func getNotes(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("notes: %#v\n", notes)
-	// resp := Response{
-	// 	Notes: []Note{},
-	// }
+func (a *App) loadNotes() {
+	file, err := os.Open(a.notesFile)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			fmt.Println("Data file not found. Initializing empty slice.")
+			a.notes = []Note{}
+		} else {
+			fmt.Printf("Error opening file: %v\n", err)
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-
-	if err := json.NewEncoder(w).Encode(notes); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-}
 
-func postNotes(w http.ResponseWriter, r *http.Request) {
-	note := Note{}
-	json.NewDecoder(r.Body).Decode(&note)
+	defer file.Close()
+	fmt.Println("Data file opened successfully. Loading into slice.")
 
-	note.ID = nextID
-	nextID = nextID + 1
-
-	notes = append(notes, note)
-
-	w.WriteHeader(http.StatusCreated)
-}
-
-func deleteNote(w http.ResponseWriter, r *http.Request) {
-	if id, err := strconv.Atoi(r.PathValue("id")); err == nil {
-		// notes = slices.DeleteFunc(notes, func(n Note) bool {
-		// 	return n.ID == id
-		// })
-
-		noteIdx := getNoteIdx(id)
-		
-		if noteIdx != -1 {
-			notes = append(notes[:noteIdx], notes[noteIdx+1:]...)
-		} else {
-			http.Error(w, "Id not found!", http.StatusInternalServerError)
-		}
-	} else {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-	}
-}
-
-func getNoteIdx(id int) int {
-	for i, note := range notes {
-		if note.ID == id {
-			return i
-		}
+	a.notes = []Note{}
+	if err := json.NewDecoder(file).Decode(&a.notes); err != nil {
+		log.Fatal("Error decoding data file!")
 	}
 
-	return -1
+	fmt.Println("Data file successully loaded into Notes.")
+}
+
+func (a *App) saveNotes() {
+	file, err := os.Create(a.tempNotesFile)
+	if err != nil {
+		log.Fatalf("Error creating temp data file: %v", err)
+	}
+
+	if err := json.NewEncoder(file).Encode(a.notes); err != nil {
+		fmt.Printf("Error encoding temp data file: %v; removing temp file\n", err)
+		file.Close()
+		os.Remove(a.tempNotesFile)
+		return
+	}
+
+	file.Close()
+
+	if err = os.Rename(a.tempNotesFile, a.notesFile); err != nil {
+		fmt.Printf("Error replacing data file: %v\n", err)
+	}
+	fmt.Println("Sucessfully saved data file")
 }
 
 func main() {
-	setNextID()
-	mux := http.NewServeMux()
+	app := newApp()
+	app.loadNotes()
+	app.setNextID()
 
-	mux.HandleFunc("GET /api/notes", getNotes)
-	mux.HandleFunc("POST /api/notes", postNotes)
-	mux.HandleFunc("DELETE /api/notes/{id}", deleteNote)
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/notes", app.getNotesHandler)
+	mux.HandleFunc("POST /api/notes", app.postNoteHandler)
+	mux.HandleFunc("DELETE /api/notes/{id}", app.deleteNoteHandler)
+	mux.HandleFunc("PUT /api/notes/{id}", app.putNotesHandler)
 
 	fmt.Println("Starting Server on", PORT)
 	if err := http.ListenAndServe(PORT, mux); err != nil {
