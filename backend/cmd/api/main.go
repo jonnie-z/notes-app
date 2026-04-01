@@ -17,6 +17,16 @@ const PORT = ":8080"
 // const TEMP_DATA_FILE = DATA_FILE + ".tmp"
 
 type App struct {
+	store *NoteStore
+}
+
+func newApp() App {
+	return App{
+		store: newNoteStore(),
+	}
+}
+
+type NoteStore struct {
 	notes         []Note
 	nextID        int
 	notesFile     string
@@ -25,25 +35,25 @@ type App struct {
 	mu sync.Mutex
 }
 
-func newApp() App {
+func newNoteStore() *NoteStore {
 	notesFile := "./db.json"
-	return App{
-		notes:         []Note{},
-		nextID:        0,
-		notesFile:     notesFile,
+	return &NoteStore{
+		notes: []Note{},
+		nextID: math.MinInt64,
+		notesFile: notesFile,
 		tempNotesFile: notesFile + ".tmp",
 	}
 }
 
 type Note struct {
 	ID   int    `json:"id"`
-	Body string `json:"body"`
+	Text string `json:"text"`
 }
 
-func (a *App) setNextID() {
+func (n *NoteStore) setNextID() {
 	highest := math.MinInt64
 
-	for _, note := range a.notes {
+	for _, note := range n.notes {
 		if note.ID > highest {
 			highest = note.ID
 		}
@@ -53,15 +63,15 @@ func (a *App) setNextID() {
 		highest = -1
 	}
 
-	a.nextID = highest + 1
+	n.nextID = highest + 1
 }
 
-func (a *App) loadNotes() {
-	file, err := os.Open(a.notesFile)
+func (n *NoteStore) loadNotes() {
+	file, err := os.Open(n.notesFile)
 	if err != nil {
 		if errors.Is(err, os.ErrNotExist) {
 			fmt.Println("Data file not found. Initializing empty slice.")
-			a.notes = []Note{}
+			n.notes = []Note{}
 		} else {
 			fmt.Printf("Error opening file: %v\n", err)
 		}
@@ -72,30 +82,30 @@ func (a *App) loadNotes() {
 	defer file.Close()
 	fmt.Println("Data file opened successfully. Loading into slice.")
 
-	a.notes = []Note{}
-	if err := json.NewDecoder(file).Decode(&a.notes); err != nil {
+	n.notes = []Note{}
+	if err := json.NewDecoder(file).Decode(&n.notes); err != nil {
 		log.Fatal("Error decoding data file!")
 	}
 
 	fmt.Println("Data file successully loaded into Notes.")
 }
 
-func (a *App) saveNotes() {
-	file, err := os.Create(a.tempNotesFile)
+func (n *NoteStore) saveNotes() {
+	file, err := os.Create(n.tempNotesFile)
 	if err != nil {
 		log.Fatalf("Error creating temp data file: %v", err)
 	}
 
-	if err := json.NewEncoder(file).Encode(a.notes); err != nil {
+	if err := json.NewEncoder(file).Encode(n.notes); err != nil {
 		fmt.Printf("Error encoding temp data file: %v; removing temp file\n", err)
 		file.Close()
-		os.Remove(a.tempNotesFile)
+		os.Remove(n.tempNotesFile)
 		return
 	}
 
 	file.Close()
 
-	if err = os.Rename(a.tempNotesFile, a.notesFile); err != nil {
+	if err = os.Rename(n.tempNotesFile, n.notesFile); err != nil {
 		fmt.Printf("Error replacing data file: %v\n", err)
 	}
 	fmt.Println("Sucessfully saved data file")
@@ -103,8 +113,8 @@ func (a *App) saveNotes() {
 
 func main() {
 	app := newApp()
-	app.loadNotes()
-	app.setNextID()
+	app.store.loadNotes()
+	app.store.setNextID()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/notes", app.getNotesHandler)
