@@ -13,7 +13,7 @@ func (a *App) getNotesHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 
-	notes := a.store.GetAll()
+	notes, _ := a.store.GetAll()
 	fmt.Printf("notes: %#v\n", notes)
 	if err := json.NewEncoder(w).Encode(notes); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -21,14 +21,14 @@ func (a *App) getNotesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (n *NoteStore) GetAll() []Note {
+func (n *NoteStore) GetAll() ([]Note, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
 	dst := make([]Note, len(n.notes))
 	copy(dst, n.notes)
 
-	return dst
+	return dst, nil
 }
 
 func (a *App) postNoteHandler(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +44,7 @@ func (a *App) postNoteHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	note := a.store.Create(string(bodyBytes))
+	note, _ := a.store.Create(string(bodyBytes))
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -54,13 +54,13 @@ func (a *App) postNoteHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (n *NoteStore) Create(body string) Note {
+func (n *NoteStore) Create(text string) (Note, error) {
 	note := Note{}
-	json.NewDecoder(strings.NewReader(body)).Decode(&note)
+	json.NewDecoder(strings.NewReader(text)).Decode(&note)
 
 	n.appendAndSave(&note)
 
-	return note
+	return note, nil
 }
 
 func (n *NoteStore) appendAndSave(note *Note) {
@@ -147,12 +147,12 @@ func (a *App) putNotesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (n *NoteStore) Update(id int, body string) (Note, error) {
+func (n *NoteStore) Update(id int, text string) (Note, error) {
 	noteIdx := n.getNoteIdx(id)
 
 	if noteIdx != -1 {
 		newNote := Note{}
-		json.NewDecoder(strings.NewReader(body)).Decode(&newNote)
+		json.NewDecoder(strings.NewReader(text)).Decode(&newNote)
 
 		n.updateNoteAtIndex(noteIdx, newNote)
 

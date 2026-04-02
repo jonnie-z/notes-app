@@ -17,13 +17,20 @@ const PORT = ":8080"
 // const TEMP_DATA_FILE = DATA_FILE + ".tmp"
 
 type App struct {
-	store *NoteStore
+	store NoteRepository
 }
 
 func newApp() App {
 	return App{
 		store: newNoteStore(),
 	}
+}
+
+type NoteRepository interface {
+	GetAll() ([]Note, error)
+	Create(text string) (Note, error)
+	Update(id int, text string) (Note, error)
+	Delete(id int) error
 }
 
 type NoteStore struct {
@@ -35,14 +42,27 @@ type NoteStore struct {
 	mu sync.Mutex
 }
 
+type InMemoryStore struct {
+	notes []Note
+	nextID int
+	
+	mu sync.Mutex
+}
+
 func newNoteStore() *NoteStore {
 	notesFile := "./db.json"
-	return &NoteStore{
+
+	noteStore := &NoteStore{
 		notes: []Note{},
 		nextID: math.MinInt64,
 		notesFile: notesFile,
 		tempNotesFile: notesFile + ".tmp",
 	}
+
+	noteStore.loadNotes()
+	noteStore.setNextID()
+
+	return noteStore
 }
 
 type Note struct {
@@ -113,8 +133,6 @@ func (n *NoteStore) saveNotes() {
 
 func main() {
 	app := newApp()
-	app.store.loadNotes()
-	app.store.setNextID()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/notes", app.getNotesHandler)
