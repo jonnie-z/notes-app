@@ -8,6 +8,7 @@ import (
 	"math"
 	"net/http"
 	"os"
+	"strings"
 	"sync"
 )
 
@@ -16,13 +17,29 @@ const PORT = ":8080"
 // const DATA_FILE = "./db.json"
 // const TEMP_DATA_FILE = DATA_FILE + ".tmp"
 
+type StoreType int
+
+const (
+	StoreJSON StoreType = iota
+	StoreInMemory
+)
+
 type App struct {
 	store NoteRepository
 }
 
-func newApp() App {
+func newApp(storeType StoreType) App {
+	var store NoteRepository
+
+	switch storeType {
+	case StoreJSON:
+		store = newNoteStore()
+	case StoreInMemory:
+		store = newInMemoryStore()
+	}
+
 	return App{
-		store: newNoteStore(),
+		store: store,
 	}
 }
 
@@ -49,6 +66,95 @@ type InMemoryStore struct {
 	mu sync.Mutex
 }
 
+func newInMemoryStore() *InMemoryStore {
+	inMemoryStore := &InMemoryStore{
+		notes: []Note{},
+		nextID: 0,
+	}
+
+	return inMemoryStore
+}
+
+func (i *InMemoryStore) Create(text string) (Note, error) {
+	note := Note{}
+	json.NewDecoder(strings.NewReader(text)).Decode(&note)
+
+	i.appendToStore(&note)
+
+	return note, nil
+}
+
+func (i *InMemoryStore) GetAll() ([]Note, error) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	notesCopy := make([]Note, len(i.notes))
+	copy(notesCopy, i.notes)
+
+	return notesCopy, nil
+}
+
+func (i *InMemoryStore) Update(id int, text string) (Note, error) {
+	idx := getNoteIdx(i.notes, id)
+
+	if idx != -1 {
+		newNote := Note{}
+		json.NewDecoder(strings.NewReader(text)).Decode(&newNote)
+
+		i.mu.Lock()
+		defer i.mu.Unlock()
+		i.notes[idx].Text = newNote.Text
+
+		return newNote, nil
+	} else {
+		return Note{}, fmt.Errorf("Id '%d' not found!", id)
+	}
+}
+
+
+func (i *InMemoryStore) Delete(id int) error {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	idx := getNoteIdx(i.notes, id)
+
+	if idx == -1 {
+		return fmt.Errorf("Note with ID '%d' not found!", id)
+	}
+
+	i.notes = removeNoteAtIndex(i.notes, idx)
+
+	return nil
+}
+
+func (i *InMemoryStore) appendToStore(note *Note) {
+	i.mu.Lock()
+	defer i.mu.Unlock()
+
+	note.ID = i.nextID
+	i.nextID = i.nextID + 1
+
+	i.notes = append(i.notes, *note)
+}
+
+// func (i *InMemoryStore) setNextID() {
+// 	i.mu.Lock()
+// 	defer i.mu.Unlock()
+// 	highest := math.MinInt64
+
+// 	for _, note := range i.notes {
+// 		if note.ID > highest {
+// 			highest = note.ID
+// 		}
+// 	}
+
+// 	if highest < 0 {
+// 		highest = -1
+// 	}
+
+// 	i.nextID = highest + 1
+// }
+
 func newNoteStore() *NoteStore {
 	notesFile := "./db.json"
 
@@ -71,6 +177,8 @@ type Note struct {
 }
 
 func (n *NoteStore) setNextID() {
+	n.mu.Lock()
+	defer n.mu.Unlock()
 	highest := math.MinInt64
 
 	for _, note := range n.notes {
@@ -132,7 +240,21 @@ func (n *NoteStore) saveNotes() {
 }
 
 func main() {
-	app := newApp()
+	args := os.Args[1:]
+	var storeType StoreType
+
+	if len(args) == 0 {
+		storeType = StoreJSON
+	} else {
+		switch args[0] {
+		case "json":
+			storeType = StoreJSON
+		case "mem":
+			storeType = StoreInMemory
+		}
+	}
+
+	app := newApp(storeType)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/notes", app.getNotesHandler)

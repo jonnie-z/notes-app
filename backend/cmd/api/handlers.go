@@ -58,12 +58,13 @@ func (n *NoteStore) Create(text string) (Note, error) {
 	note := Note{}
 	json.NewDecoder(strings.NewReader(text)).Decode(&note)
 
-	n.appendAndSave(&note)
+	n.appendNote(&note)
+	n.saveNotes()
 
 	return note, nil
 }
 
-func (n *NoteStore) appendAndSave(note *Note) {
+func (n *NoteStore) appendNote(note *Note) {
 	n.mu.Lock()
 	defer n.mu.Unlock()
 
@@ -71,7 +72,6 @@ func (n *NoteStore) appendAndSave(note *Note) {
 	n.nextID = n.nextID + 1
 
 	n.notes = append(n.notes, *note)
-	n.saveNotes()
 }
 
 func (a *App) deleteNoteHandler(w http.ResponseWriter, r *http.Request) {
@@ -92,35 +92,18 @@ func (a *App) deleteNoteHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (n *NoteStore) Delete(id int) error {
-	noteIdx := n.getNoteIdx(id)
+	n.mu.Lock()
+	defer n.mu.Unlock()
+	noteIdx := getNoteIdx(n.notes, id)
 
 	if noteIdx != -1 {
-		n.removeNoteAtIndex(noteIdx)
+		n.notes = removeNoteAtIndex(n.notes, noteIdx)
+		n.saveNotes()
+
 		return nil
 	} else {
 		return fmt.Errorf("Id '%d' not found!", id)
 	}
-}
-
-func (n *NoteStore) removeNoteAtIndex(idx int) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	n.notes = append(n.notes[:idx], n.notes[idx+1:]...)
-	n.saveNotes()
-}
-
-func (n *NoteStore) getNoteIdx(id int) int {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-
-	for i, note := range n.notes {
-		if note.ID == id {
-			return i
-		}
-	}
-
-	return -1
 }
 
 func (a *App) putNotesHandler(w http.ResponseWriter, r *http.Request) {
@@ -148,23 +131,19 @@ func (a *App) putNotesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (n *NoteStore) Update(id int, text string) (Note, error) {
-	noteIdx := n.getNoteIdx(id)
+	idx := getNoteIdx(n.notes, id)
 
-	if noteIdx != -1 {
+	if idx != -1 {
 		newNote := Note{}
 		json.NewDecoder(strings.NewReader(text)).Decode(&newNote)
 
-		n.updateNoteAtIndex(noteIdx, newNote)
+		n.mu.Lock()
+		defer n.mu.Unlock()
+		n.notes[idx].Text = newNote.Text
+		n.saveNotes()
 
 		return newNote, nil
 	} else {
 		return Note{}, fmt.Errorf("Id '%d' not found!", id)
 	}
-}
-
-func (n *NoteStore) updateNoteAtIndex(idx int, newNote Note) {
-	n.mu.Lock()
-	defer n.mu.Unlock()
-	n.notes[idx].Text = newNote.Text
-	n.saveNotes()
 }
