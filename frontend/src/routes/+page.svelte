@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
+
+	import { getNotes } from "$lib/api/notes";
+
 	interface Note {
 		id: number | string;
 		body: string;
 		pending?: boolean;
 	}
+
+	const minLength = 3;
 
 	let note: string = $state('');
 	let query: string = $state('');
@@ -45,23 +50,9 @@
 		}
 	}
 
-	async function getNotes() {
-		try {
-			const resp = await fetch('/api/notes');
-
-			if (!resp.ok) {
-				throw new Error('Something went wrong!');
-			}
-
-			notes = await resp.json();
-		} catch (error) {
-			console.error(error);
-		}
-	}
-
 	async function refreshNotes() {
 		query = '';
-		getNotes();
+		notes = await getNotes();
 	}
 
 	async function deleteNote(id: number | string) {
@@ -131,8 +122,18 @@
 		informationalText = '';
 	}
 
+	let searchTimeout: ReturnType<typeof setTimeout> | null = null;
+
 	async function searchNotes() {
-		if (query.trim()) {
+		if (searchTimeout) {
+			clearTimeout(searchTimeout);
+		}
+
+		searchTimeout = setTimeout(executeSearch, 400);
+	}
+
+	async function executeSearch() {
+		if (query.length != 1) {
 			try {
 				const resp = await fetch(`/api/notes?query=${encodeURIComponent(query)}`);
 
@@ -147,7 +148,7 @@
 		}
 	}
 
-	onMount(getNotes);
+	onMount(async () => notes = await getNotes());
 </script>
 
 <h1>Notes App</h1>
@@ -155,8 +156,8 @@
 <input type="text" name="note-entry" bind:value={note} />
 <button type="button" onclick={addNote}>Add</button>
 <button type="button" onclick={refreshNotes}>Refresh</button><br />
-<input type="text" name="search-query" bind:value={query} />
-<button type="button" onclick={searchNotes}>Search</button>
+<input type="text" name="search-query" bind:value={query} oninput={searchNotes} />
+<!-- <button type="button" onclick={searchNotes}>Search</button> -->
 <br />
 <br />
 {#each notes as note}
