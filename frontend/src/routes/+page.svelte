@@ -2,11 +2,12 @@
 	import { onMount } from 'svelte';
 	interface Note {
 		id: number | string;
-		text: string;
+		body: string;
 		pending?: boolean;
 	}
 
 	let note: string = $state('');
+	let query: string = $state('');
 	let notes: Note[] = $state([]);
 	let editingId: number | string | null = $state(null);
 	let editText = $state('');
@@ -15,7 +16,7 @@
 	async function addNote() {
 		if (note.trim()) {
 			const tempId = 'temp-' + Date.now();
-			const tempNote = { id: tempId, text: note, pending: true };
+			const tempNote = { id: tempId, body: note, pending: true };
 
 			notes = [...notes, tempNote];
 			note = '';
@@ -31,7 +32,7 @@
 
 				if (!resp.ok) {
 					notes = notes.filter((n) => n.id !== tempId);
-					note = tempNote.text;
+					note = tempNote.body;
 					throw new Error('Something went wrong!');
 				}
 
@@ -59,6 +60,7 @@
 	}
 
 	async function refreshNotes() {
+		query = '';
 		getNotes();
 	}
 
@@ -81,7 +83,7 @@
 	function editNote(note: Note) {
 		if (editingId === null) {
 			editingId = note.id;
-			editText = note.text;
+			editText = note.body;
 		} else {
 			informationalText = 'You need to save or cancel editing before editing another note!';
 		}
@@ -89,7 +91,7 @@
 
 	async function saveNote(id: number | string) {
 		try {
-			const tempNote = { text: editText };
+			const tempNote = { body: editText };
 
 			const json = JSON.stringify(tempNote);
 			const resp = await fetch(`api/notes/${id}`, {
@@ -108,7 +110,7 @@
 
 			notes = notes.map((n) => {
 				if (n.id === id) {
-					n.text = updatedNote.text;
+					n.body = updatedNote.body;
 					return n;
 				} else {
 					return n;
@@ -129,6 +131,22 @@
 		informationalText = '';
 	}
 
+	async function searchNotes() {
+		if (query.trim()) {
+			try {
+				const resp = await fetch(`/api/notes?query=${encodeURIComponent(query)}`);
+
+				if (!resp.ok) {
+					throw new Error('Something went wrong!');
+				}
+
+				notes = await resp.json();
+			} catch (error) {
+				console.error(error);
+			}
+		}
+	}
+
 	onMount(getNotes);
 </script>
 
@@ -137,6 +155,9 @@
 <input type="text" name="note-entry" bind:value={note} />
 <button type="button" onclick={addNote}>Add</button>
 <button type="button" onclick={refreshNotes}>Refresh</button><br />
+<input type="text" name="search-query" bind:value={query} />
+<button type="button" onclick={searchNotes}>Search</button>
+<br />
 <br />
 {#each notes as note}
 	<button type="button" onclick={() => deleteNote(note.id)} disabled={note.pending}>Delete</button>
@@ -145,7 +166,7 @@
 		<button type="button" onclick={cancelEdit}>X</button> ::
 		<input type="text" bind:value={editText} />
 	{:else}
-		<button type="button" onclick={() => editNote(note)} disabled={note.pending}>Edit</button> :: {note.text}
+		<button type="button" onclick={() => editNote(note)} disabled={note.pending}>Edit</button> :: {note.body}
 	{/if}
 	{#if note.pending}
 		(saving . . .)
@@ -154,7 +175,6 @@
 {/each}
 <br />
 <h5>{informationalText}</h5>
-
 
 <!-- 
 

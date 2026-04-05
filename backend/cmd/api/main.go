@@ -6,19 +6,18 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/jonnie-z/notes-app/internal/app"
+	"github.com/joho/godotenv"
+
 	"github.com/jonnie-z/notes-app/internal/httpapi"
 	"github.com/jonnie-z/notes-app/internal/store"
 )
 
-const PORT = ":8080"
-
-// const DATA_FILE = "./db.json"
-// const TEMP_DATA_FILE = DATA_FILE + ".tmp"
-
-
-
 func main() {
+	err := godotenv.Load()
+	if err != nil {
+		log.Fatalf("Error loading .env file: '%v'", err)
+	}
+
 	args := os.Args[1:]
 	var storeType store.StoreType
 
@@ -30,16 +29,18 @@ func main() {
 			storeType = store.StoreJSON
 		case "mem":
 			storeType = store.StoreInMemory
+		case "sql":
+			storeType = store.StoreSQL
 		}
 	}
 
-	app := app.NewApp(storeType)
+	app := newApp(storeType)
 	api := &httpapi.API{App: app}
 
 	mux := api.Routes()
 
-	fmt.Println("Starting Server on", PORT)
-	if err := http.ListenAndServe(PORT, mux); err != nil {
+	fmt.Println("Starting Server on", app.Port)
+	if err := http.ListenAndServe(app.Port, mux); err != nil {
 		log.Fatal(err)
 	}
 }

@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/jonnie-z/notes-app/internal/app"
 	"github.com/jonnie-z/notes-app/internal/httpapi"
 	"github.com/jonnie-z/notes-app/internal/store"
 )
@@ -17,14 +16,14 @@ type inputPostNote struct{
 }
 
 func TestPostNotes(t *testing.T) {
-	app := app.NewApp(store.StoreInMemory)
+	app := newApp(store.StoreInMemory)
 	api := httpapi.API{App: app}
 
 	tests := []struct {
 		input inputPostNote
 		expected store.Note
 	}{
-		{inputPostNote{"{\"text\":\"hello\"}"}, store.Note{ID:0,Text:"hello"}},
+		{inputPostNote{"{\"body\":\"hello\"}"}, store.Note{ID:0,Body:"hello"}},
 	}
 
 	for _, test := range tests {
@@ -44,8 +43,8 @@ func TestPostNotes(t *testing.T) {
 			t.Errorf("Expected note ID to be '%d' but got '%v'", test.expected.ID, actual.ID)
 		}
 
-		if actual.Text != test.expected.Text {
-			t.Errorf("Expected note Text to be '%s' but got '%s'", test.expected.Text, actual.Text)
+		if actual.Body != test.expected.Body {
+			t.Errorf("Expected note Text to be '%s' but got '%s'", test.expected.Body, actual.Body)
 		}
 
 		if w.Code != http.StatusCreated {
@@ -60,7 +59,7 @@ func TestPostNotes(t *testing.T) {
 }
 
 func TestPostNotesError(t *testing.T) {
-	app := app.NewApp(store.StoreInMemory)
+	app := newApp(store.StoreInMemory)
 	api := httpapi.API{App: app}
 
 	r := httptest.NewRequest(http.MethodPost, "/api/notes", strings.NewReader("lol"))
@@ -82,7 +81,7 @@ func TestPostNotesError(t *testing.T) {
 }
 
 func TestDeleteNote(t *testing.T) {
-	app := app.NewApp(store.StoreInMemory)
+	app := newApp(store.StoreInMemory)
 	api := httpapi.API{App: app}
 	app.Store.Create("hello")
 

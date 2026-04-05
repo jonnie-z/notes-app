@@ -20,9 +20,7 @@ type NoteStore struct {
 	mu sync.Mutex
 }
 
-func NewNoteStore() *NoteStore {
-	notesFile := "./db.json"
-
+func NewNoteStore(notesFile string) *NoteStore {
 	noteStore := &NoteStore{
 		notes: []Note{},
 		nextID: math.MinInt64,
@@ -109,9 +107,29 @@ func (n *NoteStore) GetAll() ([]Note, error) {
 	return dst, nil
 }
 
-func (n *NoteStore) Create(text string) (Note, error) {
+func (n *NoteStore) Search(query string) ([]Note, error) {
+	if query == "" {
+		return n.GetAll()
+	}
+
+	notes, err := n.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []Note
+	for _, note := range notes {
+		if strings.Contains(strings.ToLower(note.Body), strings.ToLower(query)) {
+			result = append(result, note)
+		}
+	}
+
+	return result, nil
+}
+
+func (n *NoteStore) Create(body string) (Note, error) {
 	note := Note{}
-	json.NewDecoder(strings.NewReader(text)).Decode(&note)
+	json.NewDecoder(strings.NewReader(body)).Decode(&note)
 
 	n.appendNote(&note)
 	n.saveNotes()
@@ -144,16 +162,16 @@ func (n *NoteStore) Delete(id int) error {
 	}
 }
 
-func (n *NoteStore) Update(id int, text string) (Note, error) {
+func (n *NoteStore) Update(id int, body string) (Note, error) {
 	idx := getNoteIdx(n.notes, id)
 
 	if idx != -1 {
 		newNote := Note{}
-		json.NewDecoder(strings.NewReader(text)).Decode(&newNote)
+		json.NewDecoder(strings.NewReader(body)).Decode(&newNote)
 
 		n.mu.Lock()
 		defer n.mu.Unlock()
-		n.notes[idx].Text = newNote.Text
+		n.notes[idx].Body = newNote.Body
 		n.saveNotes()
 
 		return newNote, nil

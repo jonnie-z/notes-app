@@ -23,15 +23,6 @@ func NewInMemoryStore() *InMemoryStore {
 	return inMemoryStore
 }
 
-func (i *InMemoryStore) Create(text string) (Note, error) {
-	note := Note{}
-	json.NewDecoder(strings.NewReader(text)).Decode(&note)
-
-	i.appendToStore(&note)
-
-	return note, nil
-}
-
 func (i *InMemoryStore) GetAll() ([]Note, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
@@ -42,16 +33,45 @@ func (i *InMemoryStore) GetAll() ([]Note, error) {
 	return notesCopy, nil
 }
 
-func (i *InMemoryStore) Update(id int, text string) (Note, error) {
+func (i *InMemoryStore) Search(query string) ([]Note, error) {
+	if query == "" {
+		return i.GetAll()
+	}
+
+	notes, err := i.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var result []Note
+	for _, note := range notes {
+		if strings.Contains(strings.ToLower(note.Body), strings.ToLower(query)) {
+			result = append(result, note)
+		}
+	}
+
+	return result, nil
+}
+
+func (i *InMemoryStore) Create(body string) (Note, error) {
+	note := Note{}
+	json.NewDecoder(strings.NewReader(body)).Decode(&note)
+
+	i.appendToStore(&note)
+
+	return note, nil
+}
+
+func (i *InMemoryStore) Update(id int, body string) (Note, error) {
 	idx := getNoteIdx(i.notes, id)
 
 	if idx != -1 {
 		newNote := Note{}
-		json.NewDecoder(strings.NewReader(text)).Decode(&newNote)
+		json.NewDecoder(strings.NewReader(body)).Decode(&newNote)
 
 		i.mu.Lock()
 		defer i.mu.Unlock()
-		i.notes[idx].Text = newNote.Text
+		i.notes[idx].Body = newNote.Body
 
 		return newNote, nil
 	} else {

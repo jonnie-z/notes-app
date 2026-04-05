@@ -6,13 +6,28 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+
+	"github.com/jonnie-z/notes-app/internal/store"
 )
 
 func (a *API) GetNotesHandler(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	notes := []store.Note{}
+	var err error
 
-	notes, _ := a.App.Store.GetAll()
+	q := r.URL.Query().Get("query")
+	fmt.Printf("\nquery: '%s'\n", q)
+	if q == "" {
+		notes, err = a.App.Store.GetAll()
+	} else {
+		notes, err = a.App.Store.Search(q)
+	}
+
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
 	fmt.Printf("notes: %#v\n", notes)
 	if err := json.NewEncoder(w).Encode(notes); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -79,7 +94,6 @@ func (a *API) PutNotesHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
 		if err := json.NewEncoder(w).Encode(newNote); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
