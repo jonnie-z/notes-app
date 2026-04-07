@@ -74,7 +74,10 @@ func (a *API) DeleteNoteHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 
-		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(struct{}{}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}

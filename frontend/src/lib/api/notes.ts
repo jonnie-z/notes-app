@@ -1,16 +1,61 @@
-export async function getNotes(query?: string) {
-    try {
-        const url = query
-            ? `/api/notes?query=${encodeURIComponent(query)}`
-            : `/api/notes`;
+export interface Note {
+    id: number | string;
+    body: string;
+    pending?: boolean;
+}
 
-        const resp = await fetch(url);
-        if (!resp.ok) {
-            throw new Error('Something went wrong!');
-        }
-
-        return resp.json();
-    } catch (error) {
-        console.error(error);
+async function handleResponse<T>(resp: Response): Promise<T> {
+    if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(text || "Request failed");
     }
+
+    return resp.json();
+}
+
+export async function getNotes(query?: string): Promise<Note[]> {
+    const url = query
+        ? `/api/notes?query=${encodeURIComponent(query)}`
+        : `/api/notes`;
+
+    const resp = await fetch(url);
+    return handleResponse(resp);
+}
+
+export async function createNote(tempNote: Note): Promise<Note> {
+    console.log(tempNote);
+    console.log(JSON.stringify(tempNote));
+    const resp = await fetch('api/notes', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(tempNote)
+    });
+
+    return handleResponse(resp);
+}
+
+export async function updateNote(tempNote: Note): Promise<Note> {
+    const resp = await fetch(`api/notes/${tempNote.id}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ body: tempNote.body })
+    });
+
+    if (!resp.ok) {
+        throw new Error('Something went wrong!');
+    }
+
+    return handleResponse(resp);
+}
+
+export async function deleteNote(id: number | string) {
+    const resp = await fetch(`api/notes/${id}`, {
+        method: 'DELETE'
+    });
+
+    return handleResponse(resp);
 }

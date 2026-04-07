@@ -1,15 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 
-	import { getNotes } from "$lib/api/notes";
+	import NoteItem from '$lib/components/NoteItem.svelte';
+	import { type Note, getNotes, createNote, updateNote, deleteNote } from '$lib/api/notes';
 
-	interface Note {
-		id: number | string;
-		body: string;
-		pending?: boolean;
-	}
-
-	const minLength = 3;
+	const MIN_LENGTH = 3;
 
 	let note: string = $state('');
 	let query: string = $state('');
@@ -20,52 +15,43 @@
 
 	async function addNote() {
 		if (note.trim()) {
-			const tempId = 'temp-' + Date.now();
-			const tempNote = { id: tempId, body: note, pending: true };
-
-			notes = [...notes, tempNote];
-			note = '';
-			const json = JSON.stringify(tempNote);
 			try {
-				const resp = await fetch('api/notes', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json'
-					},
-					body: json
-				});
+				const tempId = 'temp-' + Date.now();
+				const tempNote = { id: tempId, body: note, pending: true };
 
-				if (!resp.ok) {
+				notes = [...notes, tempNote];
+				note = '';
+				let createdNote: Note;
+
+				createdNote = await createNote(tempNote);
+
+				if (!createdNote) {
 					notes = notes.filter((n) => n.id !== tempId);
 					note = tempNote.body;
-					throw new Error('Something went wrong!');
 				}
-
-				const createdNote = await resp.json();
 
 				notes = notes.map((n) => (n.id === tempId ? createdNote : n));
 			} catch (error) {
-				console.error(error);
+				console.log(error);
 			}
 		}
 	}
 
 	async function refreshNotes() {
 		query = '';
-		notes = await getNotes();
-	}
 
-	async function deleteNote(id: number | string) {
 		try {
-			const resp = await fetch(`api/notes/${id}`, {
-				method: 'DELETE'
-			});
-
-			if (!resp.ok) {
-				throw new Error('Something went wrong!');
-			}
+			notes = await getNotes();
 		} catch (error) {
 			console.error(error);
+		}
+	}
+
+	async function removeNote(id: number | string) {
+		try {
+			await deleteNote(id);
+		} catch (error) {
+			console.log(error);
 		}
 
 		notes = notes.filter((n) => n.id !== id);
@@ -82,22 +68,9 @@
 
 	async function saveNote(id: number | string) {
 		try {
-			const tempNote = { body: editText };
+			const tempNote = { id: id, body: editText };
 
-			const json = JSON.stringify(tempNote);
-			const resp = await fetch(`api/notes/${id}`, {
-				method: 'PUT',
-				headers: {
-					'Content-Type': 'application/json'
-				},
-				body: json
-			});
-
-			if (!resp.ok) {
-				throw new Error('Something went wrong!');
-			}
-
-			const updatedNote: Note = await resp.json();
+			const updatedNote = await updateNote(tempNote);
 
 			notes = notes.map((n) => {
 				if (n.id === id) {
@@ -133,22 +106,16 @@
 	}
 
 	async function executeSearch() {
-		if (query.length != 1) {
+		if (query.length == 0 || query.length >= MIN_LENGTH) {
 			try {
-				const resp = await fetch(`/api/notes?query=${encodeURIComponent(query)}`);
-
-				if (!resp.ok) {
-					throw new Error('Something went wrong!');
-				}
-
-				notes = await resp.json();
+				notes = await getNotes(query);
 			} catch (error) {
 				console.error(error);
 			}
 		}
 	}
 
-	onMount(async () => notes = await getNotes());
+	onMount(async () => (notes = await getNotes()));
 </script>
 
 <h1>Notes App</h1>
@@ -161,18 +128,8 @@
 <br />
 <br />
 {#each notes as note}
-	<button type="button" onclick={() => deleteNote(note.id)} disabled={note.pending}>Delete</button>
-	{#if note.id === editingId}
-		<button type="button" onclick={() => saveNote(note.id)}>Save</button>
-		<button type="button" onclick={cancelEdit}>X</button> ::
-		<input type="text" bind:value={editText} />
-	{:else}
-		<button type="button" onclick={() => editNote(note)} disabled={note.pending}>Edit</button> :: {note.body}
-	{/if}
-	{#if note.pending}
-		(saving . . .)
-	{/if}
-	<br />
+	<NoteItem {note}></NoteItem>
+	
 {/each}
 <br />
 <h5>{informationalText}</h5>
