@@ -128,8 +128,15 @@
 <br />
 <br />
 {#each notes as note}
-	<NoteItem {note}></NoteItem>
-	
+	<NoteItem
+		{note}
+		isEditing={note.id === editingId}
+		{removeNote}
+		{saveNote}
+		{cancelEdit}
+		{editText}
+		{editNote}
+	></NoteItem>
 {/each}
 <br />
 <h5>{informationalText}</h5>
