@@ -12,6 +12,7 @@
 	let editingId: number | string | null = $state(null);
 	let editText = $state('');
 	let informationalText = $state('');
+	let isLoading = $state(false);
 
 	async function addNote() {
 		if (note.trim()) {
@@ -66,9 +67,9 @@
 		}
 	}
 
-	async function saveNote(id: number | string) {
+	async function saveNote(id: number | string, body: string) {
 		try {
-			const tempNote = { id: id, body: editText };
+			const tempNote = { id: id, body: body };
 
 			const updatedNote = await updateNote(tempNote);
 
@@ -106,16 +107,30 @@
 	}
 
 	async function executeSearch() {
+		isLoading = true;
+
 		if (query.length == 0 || query.length >= MIN_LENGTH) {
 			try {
 				notes = await getNotes(query);
 			} catch (error) {
 				console.error(error);
+			} finally {
+				isLoading = false;
 			}
 		}
 	}
 
-	onMount(async () => (notes = await getNotes()));
+	onMount(async () => {
+		isLoading = true;
+
+		try {
+			notes = await getNotes();
+		} catch (error) {
+
+		} finally {
+			isLoading = false;
+		}
+		});
 </script>
 
 <h1>Notes App</h1>
@@ -127,17 +142,25 @@
 <!-- <button type="button" onclick={searchNotes}>Search</button> -->
 <br />
 <br />
-{#each notes as note}
-	<NoteItem
-		{note}
-		isEditing={note.id === editingId}
-		{removeNote}
-		{saveNote}
-		{cancelEdit}
-		{editText}
-		{editNote}
-	></NoteItem>
-{/each}
+
+{#if isLoading}
+	<p>Loading . . .</p>
+{:else if notes.length > 0}
+	{#each notes as note}
+		<NoteItem
+			{note}
+			isEditing={note.id === editingId}
+			{removeNote}
+			{saveNote}
+			{cancelEdit}
+			{editText}
+			{editNote}
+		></NoteItem><br />
+	{/each}
+{:else}
+	NO NOTES FOUND
+{/if}
+
 <br />
 <h5>{informationalText}</h5>
 
