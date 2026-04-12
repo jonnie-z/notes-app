@@ -5,8 +5,7 @@ import (
 )
 
 type NoteRepository interface {
-	GetAll() ([]store.Note, error)
-	Search(query string) ([]store.Note, error)
+	List(query string, page int, pageSize int) ([]store.Note, int, error)
 	Create(body string) (store.Note, error)
 	Update(id int, body string) (store.Note, error)
 	Delete(id int) error

@@ -6,6 +6,7 @@
 
 	const MIN_LENGTH = 3;
 
+	let inputRef: HTMLInputElement;
 	let note: string = $state('');
 	let query: string = $state('');
 	let notes: Note[] = $state([]);
@@ -13,6 +14,8 @@
 	let editText = $state('');
 	let informationalText = $state('');
 	let isLoading = $state(false);
+	let page = $state('1');
+	let pageSize = $state('10');
 
 	async function addNote() {
 		if (note.trim()) {
@@ -36,13 +39,15 @@
 				console.log(error);
 			}
 		}
+
+		inputRef.focus();
 	}
 
 	async function refreshNotes() {
 		query = '';
 
 		try {
-			notes = await getNotes();
+			notes = await getNotes('', pageSize, page);
 		} catch (error) {
 			console.error(error);
 		}
@@ -111,7 +116,7 @@
 
 		if (query.length == 0 || query.length >= MIN_LENGTH) {
 			try {
-				notes = await getNotes(query);
+				notes = await getNotes(query, pageSize, page);
 			} catch (error) {
 				console.error(error);
 			} finally {
@@ -124,7 +129,7 @@
 		isLoading = true;
 
 		try {
-			notes = await getNotes();
+			notes = await getNotes('', pageSize, page);
 		} catch (error) {
 
 		} finally {
@@ -135,11 +140,25 @@
 
 <h1>Notes App</h1>
 
-<input type="text" name="note-entry" bind:value={note} />
+<input bind:this={inputRef} type="text" name="note-entry" bind:value={note} />
 <button type="button" onclick={addNote}>Add</button>
 <button type="button" onclick={refreshNotes}>Refresh</button><br />
-<input type="text" name="search-query" bind:value={query} oninput={searchNotes} />
-<!-- <button type="button" onclick={searchNotes}>Search</button> -->
+<input type="text" name="search-query" bind:value={query} oninput={searchNotes} /><br />
+<label for="pageSize">Page Size:</label>
+<select name="pageSize" id="pageSize" bind:value={pageSize}>
+	<option value="1">1</option>
+	<option value="5">5</option>
+	<option value="10">10</option>
+	<option value="20">20</option>
+</select>
+<label for="page">Page:</label>
+<select name="page" id="page" bind:value={page}>
+	<option value="1">1</option>
+	<option value="2">2</option>
+	<option value="3">3</option>
+	<option value="4">4</option>
+	<option value="5">5</option>
+</select>
 <br />
 <br />
 

@@ -97,6 +97,10 @@ func (n *NoteStore) saveNotes() {
 	fmt.Println("Sucessfully saved data file")
 }
 
+func (n *NoteStore) List(query string, page int, pageSize int) ([]Note, int, error) {
+	return nil, 0, nil
+}
+
 func (n *NoteStore) GetAll() ([]Note, error) {
 	n.mu.Lock()
 	defer n.mu.Unlock()

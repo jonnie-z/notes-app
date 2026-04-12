@@ -23,6 +23,32 @@ func NewInMemoryStore() *InMemoryStore {
 	return inMemoryStore
 }
 
+func (i *InMemoryStore) List(query string, page int, pageSize int) ([]Note, int, error) {
+	notes, err := i.GetAll()
+	if err != nil {
+		return nil, 0, err
+	}
+
+	var filtered []Note
+	if query == "" {
+		filtered = append(filtered, notes...)
+	} else {
+		for _, note := range notes {
+			if strings.Contains(strings.ToLower(note.Body), strings.ToLower(query)) {
+				filtered = append(filtered, note)
+			}
+		}
+	}
+
+	offset := (page - 1) * pageSize
+	if offset >= len(filtered) { return []Note{}, 0, nil }
+	end := min(offset + pageSize, len(filtered))
+
+	result := filtered[offset:end]
+
+	return result, len(filtered), nil
+}
+
 func (i *InMemoryStore) GetAll() ([]Note, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()

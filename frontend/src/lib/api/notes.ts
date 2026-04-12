@@ -13,10 +13,26 @@ async function handleResponse<T>(resp: Response): Promise<T> {
     return resp.json();
 }
 
-export async function getNotes(query?: string): Promise<Note[]> {
-    const url = query
+export async function getNotes(query?: string, pageSize?: string, page?: string): Promise<Note[]> {
+    let url = query
         ? `/api/notes?query=${encodeURIComponent(query)}`
         : `/api/notes`;
+    
+    if (pageSize) {
+        if (url.includes('?')) {
+            url = url  + `&pageSize=${pageSize}`
+        } else {
+            url = url  + `?pageSize=${pageSize}`
+        }
+    }
+
+    if (page) {
+        if (url.includes('?')) {
+            url = url  + `&page=${page}`
+        } else {
+            url = url  + `?page=${page}`
+        }
+    }
 
     const resp = await fetch(url);
     return handleResponse(resp);

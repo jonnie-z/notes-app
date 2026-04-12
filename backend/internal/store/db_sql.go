@@ -37,7 +37,51 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 	return store, nil
 }
 
-func (s *SQLiteStore) GetAll() ([]Note, error) { 
+func (s *SQLiteStore) List(query string, page int, pageSize int) ([]Note, int, error) {
+	var result []Note
+	offset := (page - 1) * pageSize
+	var rows *sql.Rows
+	var err error
+	var total int
+
+	if query == "" {
+		err = s.DB.QueryRow("SELECT COUNT(*) FROM notes;").Scan(&total)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		q := "SELECT id, body FROM notes LIMIT ? OFFSET ?;"
+		rows, err = s.DB.Query(q, pageSize, offset)
+	} else {
+		queryParam := "%" + query + "%"
+		err = s.DB.QueryRow("SELECT COUNT(*) FROM notes WHERE body LIKE ?", queryParam).Scan(&total)
+
+		q := "SELECT id, body FROM notes WHERE body LIKE ? LIMIT ? OFFSET ?;"
+		rows, err = s.DB.Query(q, queryParam, pageSize, offset)
+	}
+
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var note Note
+		if err := rows.Scan(&note.ID, &note.Body); err != nil {
+			return nil, 0, err
+		}
+
+		result = append(result, note)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, 0, err
+	}
+
+	return result, total, nil
+}
+
+func (s *SQLiteStore) GetAll() ([]Note, error) {
 	// TODO: sqlc?
 	result := []Note{}
 
@@ -89,7 +133,6 @@ func (s *SQLiteStore) Search(query string) ([]Note, error) {
 		return nil, err
 	}
 
-
 	return result, nil
 }
 
@@ -132,11 +175,11 @@ func (s *SQLiteStore) Create(body string) (Note, error) {
 	note.ID = int(id)
 
 	fmt.Printf("createdNote: %#v\n", note)
-	
-	return note, nil 
+
+	return note, nil
 }
 
-func (s *SQLiteStore) Update(id int, body string) (Note, error) { 
+func (s *SQLiteStore) Update(id int, body string) (Note, error) {
 	input := Note{}
 	json.NewDecoder(strings.NewReader(body)).Decode(&input)
 
@@ -154,16 +197,15 @@ func (s *SQLiteStore) Update(id int, body string) (Note, error) {
 		return Note{}, errors.New("rowsUpdated != 1!")
 	}
 
-
 	output, err := s.GetByID(input.ID)
 	if err != nil {
 		return Note{}, err
 	}
-	
+
 	return output, nil
 }
 
-func (s *SQLiteStore) Delete(id int) error { 
+func (s *SQLiteStore) Delete(id int) error {
 	res, err := s.DB.Exec("DELETE FROM notes WHERE id = ?", id)
 	if err != nil {
 		log.Fatal(err)

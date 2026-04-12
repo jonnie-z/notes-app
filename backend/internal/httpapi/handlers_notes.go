@@ -10,17 +10,60 @@ import (
 	"github.com/jonnie-z/notes-app/internal/store"
 )
 
+const (
+	PAGE_MIN      int = 1
+	PAGE_SIZE_MIN int = 10
+)
+
+type NotesPage struct {
+	Notes    []store.Note `json:"notes"`
+	Page     int          `json:"page"`
+	PageSize int          `json:"pageSize"`
+	Total    int          `json:"total"`
+}
+
 func (a *API) GetNotesHandler(w http.ResponseWriter, r *http.Request) {
-	notes := []store.Note{}
+	result := NotesPage{
+		Notes:    []store.Note{},
+		Page:     0,
+		PageSize: 0,
+		Total:    0,
+	}
 	var err error
 
-	q := r.URL.Query().Get("query")
-	fmt.Printf("\nquery: '%s'\n", q)
-	if q == "" {
-		notes, err = a.App.Store.GetAll()
+	pageStr := r.URL.Query().Get("page")
+	if pageStr == "" {
+		result.Page = PAGE_MIN
 	} else {
-		notes, err = a.App.Store.Search(q)
+		pageInt, err := strconv.Atoi(pageStr)
+		if err != nil {
+			result.Page = PAGE_MIN
+		} else {
+			result.Page = pageInt
+		}
 	}
+
+	pageSizeStr := r.URL.Query().Get("pageSize")
+	if pageSizeStr == "" {
+		result.PageSize = PAGE_SIZE_MIN
+	} else {
+		pageSizeInt, err := strconv.Atoi(pageSizeStr)
+		if err != nil {
+			result.PageSize = PAGE_SIZE_MIN
+		} else {
+			result.PageSize = pageSizeInt
+		}
+	}
+
+	if result.Page < 1 {
+		result.Page = PAGE_MIN
+	}
+	if result.PageSize < 1 {
+		result.PageSize = PAGE_SIZE_MIN
+	}
+
+	q := r.URL.Query().Get("query")
+	result.Notes, result.Total, err = a.App.Store.List(q, result.Page, result.PageSize)
 
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -28,8 +71,8 @@ func (a *API) GetNotesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Printf("notes: %#v\n", notes)
-	if err := json.NewEncoder(w).Encode(notes); err != nil {
+	fmt.Printf("notes: %#v\n", result.Notes)
+	if err := json.NewEncoder(w).Encode(result); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -75,9 +118,9 @@ func (a *API) DeleteNoteHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := json.NewEncoder(w).Encode(struct{}{}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	} else {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
