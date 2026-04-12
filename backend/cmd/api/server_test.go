@@ -51,7 +51,7 @@ func TestPostNotes(t *testing.T) {
 			t.Fatalf("expected '%d', got '%d'", http.StatusCreated, w.Code)
 		}
 
-		notes, _ := app.Store.GetAll()
+		notes, _, _ := app.Store.List("", 1, 10)
 		if len(notes) != 1 {
 			t.Fatalf("expected '1' note, got '%d'", len(notes))
 		}
@@ -74,7 +74,7 @@ func TestPostNotesError(t *testing.T) {
 		t.Fatalf("expected '%d', got '%d'", http.StatusBadRequest, w.Code)
 	}
 
-	notes, _ := app.Store.GetAll()
+	notes, _, _ := app.Store.List("", 1, 10)
 	if len(notes) != 0 {
 		t.Fatalf("expected '0' note, got '%d'", len(notes))
 	}
@@ -96,7 +96,7 @@ func TestDeleteNote(t *testing.T) {
 		t.Fatalf("expected '%d', got '%d'", http.StatusOK, w.Code)
 	}
 
-	notes, _ := app.Store.GetAll()
+	notes, _, _ := app.Store.List("", 1, 10)
 	if len(notes) != 0 {
 		t.Fatalf("expected '0' note, got '%d'", len(notes))
 	}
