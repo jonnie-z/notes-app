@@ -68,7 +68,7 @@
 			editingId = note.id;
 			editText = note.body;
 		} else {
-			informationalText = 'You need to save or cancel editing before editing another note!';
+			informationalText = 'You need to save or cancel editing before editing another note!!';
 		}
 	}
 
