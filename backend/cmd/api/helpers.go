@@ -20,7 +20,7 @@ func env(key, fallback string) string {
 func newApp(storeType store.StoreType) *app.App {
 	var appStore app.NoteRepository
 	port := env("PORT", ":8080")
-	dsn := env("DSN", "./notes.db")
+	dsn := env("DB_PATH", "./notes.db")
 
 	app := &app.App{}
 	app.Port = port

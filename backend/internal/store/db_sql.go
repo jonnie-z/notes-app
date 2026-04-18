@@ -38,7 +38,7 @@ func NewSQLiteStore(dsn string) (*SQLiteStore, error) {
 }
 
 func (s *SQLiteStore) List(query string, page int, pageSize int) ([]Note, int, error) {
-	var result []Note
+	result := []Note{}
 	offset := (page - 1) * pageSize
 	var rows *sql.Rows
 	var err error

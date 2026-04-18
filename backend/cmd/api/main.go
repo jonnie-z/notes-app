@@ -39,9 +39,28 @@ func main() {
 
 	mux := api.Routes()
 
+	mux.Handle("/", spaHandler("./build", "index.html"))
+
 	fmt.Println("Starting Server on", app.Port)
 	if err := http.ListenAndServe(app.Port, mux); err != nil {
 		log.Fatal(err)
 	}
 }
 
+func spaHandler(staticPath, indexPath string) http.Handler {
+    fs := http.FileServer(http.Dir(staticPath))
+	fmt.Println("spahandler")
+
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        path := staticPath + r.URL.Path
+		fmt.Println("handlerfunc");
+
+        _, err := os.Stat(path)
+        if os.IsNotExist(err) {
+            http.ServeFile(w, r, staticPath+"/"+indexPath)
+            return
+        }
+
+        fs.ServeHTTP(w, r)
+    })
+}
