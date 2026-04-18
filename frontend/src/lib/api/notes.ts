@@ -4,6 +4,13 @@ export interface Note {
     pending?: boolean;
 }
 
+export interface NotesPage {
+    notes: Note[]
+    page: number
+    pageSize: number
+    total: number
+}
+
 async function handleResponse<T>(resp: Response): Promise<T> {
     if (!resp.ok) {
         const text = await resp.text();
@@ -13,24 +20,24 @@ async function handleResponse<T>(resp: Response): Promise<T> {
     return resp.json();
 }
 
-export async function getNotes(query?: string, pageSize?: string, page?: string): Promise<Note[]> {
+export async function getNotes(query?: string, pageSize?: number, page?: number): Promise<NotesPage> {
     let url = query
         ? `/api/notes?query=${encodeURIComponent(query)}`
         : `/api/notes`;
-    
+
     if (pageSize) {
         if (url.includes('?')) {
-            url = url  + `&pageSize=${pageSize}`
+            url = url + `&pageSize=${pageSize}`
         } else {
-            url = url  + `?pageSize=${pageSize}`
+            url = url + `?pageSize=${pageSize}`
         }
     }
 
     if (page) {
         if (url.includes('?')) {
-            url = url  + `&page=${page}`
+            url = url + `&page=${page}`
         } else {
-            url = url  + `?page=${page}`
+            url = url + `?page=${page}`
         }
     }
 

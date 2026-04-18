@@ -2,7 +2,14 @@
 	import { onMount } from 'svelte';
 
 	import NoteItem from '$lib/components/NoteItem.svelte';
-	import { type Note, getNotes, createNote, updateNote, deleteNote } from '$lib/api/notes';
+	import {
+		type Note,
+		type NotesPage,
+		getNotes,
+		createNote,
+		updateNote,
+		deleteNote
+	} from '$lib/api/notes';
 
 	const MIN_LENGTH = 3;
 
@@ -10,12 +17,23 @@
 	let note: string = $state('');
 	let query: string = $state('');
 	let notes: Note[] = $state([]);
+	const pageSizeOptions: number[] = [1, 5, 10, 20];
+	let notesPage: NotesPage = $state({
+		notes: [],
+		page: 0,
+		pageSize: 0,
+		total: 0,
+	});
 	let editingId: number | string | null = $state(null);
 	let editText = $state('');
 	let informationalText = $state('');
 	let isLoading = $state(false);
-	let page = $state('1');
-	let pageSize = $state('10');
+	let page = $state(1);
+	let pageSize = $state(10);
+	let total = $state(0);
+	let totalPages = $derived(Math.ceil(total / pageSize));
+	let hasPrev = $derived(page > 1);
+	let hasNext = $derived(page * pageSize < total);
 
 	async function addNote() {
 		if (note.trim()) {
@@ -47,7 +65,8 @@
 		query = '';
 
 		try {
-			notes = await getNotes('', pageSize, page);
+			notesPage = await getNotes('', pageSize, page);
+			notes = notesPage.notes;
 		} catch (error) {
 			console.error(error);
 		}
@@ -112,30 +131,37 @@
 	}
 
 	async function executeSearch() {
-		isLoading = true;
-
 		if (query.length == 0 || query.length >= MIN_LENGTH) {
-			try {
-				notes = await getNotes(query, pageSize, page);
-			} catch (error) {
-				console.error(error);
-			} finally {
-				isLoading = false;
-			}
+			page = 1;
+			fetchNotes();
 		}
 	}
 
-	onMount(async () => {
+	async function fetchNotes() {
 		isLoading = true;
 
 		try {
-			notes = await getNotes('', pageSize, page);
+			notesPage = await getNotes(query, pageSize, page);
+			notes = notesPage.notes;
+			total = notesPage.total;
+			console.log($state.snapshot(hasPrev));
 		} catch (error) {
-
 		} finally {
 			isLoading = false;
 		}
-		});
+	}
+
+	async function previous() {
+		page = page - 1;
+		await fetchNotes();
+	}
+
+	async function next() {
+		page = page + 1;
+		await fetchNotes();
+	}
+
+	onMount(fetchNotes);
 </script>
 
 <h1>Notes App</h1>
@@ -146,19 +172,15 @@
 <input type="text" name="search-query" bind:value={query} oninput={searchNotes} /><br />
 <label for="pageSize">Page Size:</label>
 <select name="pageSize" id="pageSize" bind:value={pageSize}>
-	<option value="1">1</option>
-	<option value="5">5</option>
-	<option value="10">10</option>
-	<option value="20">20</option>
+	{#each pageSizeOptions as option}
+		<option value={option}>{option}</option>
+	{/each}
 </select>
-<label for="page">Page:</label>
-<select name="page" id="page" bind:value={page}>
-	<option value="1">1</option>
-	<option value="2">2</option>
-	<option value="3">3</option>
-	<option value="4">4</option>
-	<option value="5">5</option>
-</select>
+<br />
+<br />
+<button type="button" disabled={!hasPrev} onclick={previous}>Previous</button>
+<b>{page}</b> of <b>{totalPages}</b>
+<button type="button" disabled={!hasNext} onclick={next}>Next</button>
 <br />
 <br />
 
