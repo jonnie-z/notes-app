@@ -145,6 +145,12 @@
 			notes = notesPage.notes;
 			total = notesPage.total;
 			console.log($state.snapshot(hasPrev));
+			console.log($state.snapshot(hasNext));
+			console.log($state.snapshot(notesPage));
+			console.log($state.snapshot(notes));
+			console.log($state.snapshot(page));
+			console.log($state.snapshot(total));
+			console.log($state.snapshot(pageSize));
 		} catch (error) {
 		} finally {
 			isLoading = false;

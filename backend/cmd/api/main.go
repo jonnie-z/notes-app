@@ -49,11 +49,9 @@ func main() {
 
 func spaHandler(staticPath, indexPath string) http.Handler {
     fs := http.FileServer(http.Dir(staticPath))
-	fmt.Println("spahandler")
 
     return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
         path := staticPath + r.URL.Path
-		fmt.Println("handlerfunc");
 
         _, err := os.Stat(path)
         if os.IsNotExist(err) {

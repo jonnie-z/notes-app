@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"github.com/jonnie-z/notes-app/internal/app"
 	"github.com/jonnie-z/notes-app/internal/store"
@@ -20,6 +21,11 @@ func env(key, fallback string) string {
 func newApp(storeType store.StoreType) *app.App {
 	var appStore app.NoteRepository
 	port := env("PORT", ":8080")
+
+	if !strings.HasPrefix(port, ":") {
+		port = ":" + port
+	}
+
 	dsn := env("DB_PATH", "./notes.db")
 
 	app := &app.App{}
